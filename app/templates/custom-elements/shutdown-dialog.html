@@ -1,0 +1,172 @@
+<template id="shutdown-dialog-template">
+  <style>
+    @import "css/style.css";
+    @import "css/button.css";
+
+    #prompt,
+    #restarting,
+    #shutting-down,
+    #shutdown-complete {
+      display: none;
+    }
+
+    :host([state="prompt"]) #prompt {
+      display: block;
+    }
+
+    :host([state="restarting"]) #restarting {
+      display: block;
+    }
+
+    :host([state="shutting-down"]) #shutting-down {
+      display: block;
+    }
+
+    :host([state="shutdown-complete"]) #shutdown-complete {
+      display: block;
+    }
+  </style>
+
+  <div id="prompt">
+    <h3>Shut Down TinyPilot Device?</h3>
+    <p>
+      Note that this will shut down <strong>TinyPilot</strong>, not the machine
+      to which it is attached.
+    </p>
+    <button id="confirm-shutdown" class="btn-danger" type="button">
+      Shut Down
+    </button>
+    <button id="confirm-restart" class="btn-danger" type="button">
+      Restart
+    </button>
+    <button id="cancel-shutdown" type="button">Cancel</button>
+  </div>
+
+  <div id="restarting">
+    <h3>Restarting TinyPilot Device</h3>
+    <progress-spinner></progress-spinner>
+  </div>
+
+  <div id="shutting-down">
+    <h3>Shutting Down TinyPilot Device</h3>
+    <progress-spinner></progress-spinner>
+  </div>
+
+  <div id="shutdown-complete">
+    <h3>Shutdown Complete</h3>
+  </div>
+</template>
+
+<script type="module">
+  import {
+    DialogClosedEvent,
+    DialogFailedEvent,
+    DialogCloseStateChangedEvent,
+  } from "/js/events.js";
+  import { shutdown } from "/js/controllers.js";
+
+  (function () {
+    const template = document.querySelector("#shutdown-dialog-template");
+
+    customElements.define(
+      "shutdown-dialog",
+      class extends HTMLElement {
+        states = {
+          PROMPT: "prompt",
+          RESTARTING: "restarting",
+          SHUTTING_DOWN: "shutting-down",
+          SHUTDOWN_COMPLETE: "shutdown-complete",
+        };
+        statesWithoutDialogClose = new Set([
+          this.states.RESTARTING,
+          this.states.SHUTTING_DOWN,
+          this.states.SHUTDOWN_COMPLETE,
+        ]);
+
+        constructor() {
+          super();
+        }
+
+        connectedCallback() {
+          this.attachShadow({ mode: "open" }).appendChild(
+            template.content.cloneNode(true)
+          );
+          this.state = this.states.PROMPT;
+
+          this.shadowRoot
+            .getElementById("confirm-shutdown")
+            .addEventListener("click", () => {
+              this._doShutdown(/*restart=*/ false);
+            });
+          this.shadowRoot
+            .getElementById("confirm-restart")
+            .addEventListener("click", () => {
+              this._doShutdown(/*restart=*/ true);
+            });
+          this.shadowRoot
+            .getElementById("cancel-shutdown")
+            .addEventListener("click", () => {
+              this.dispatchEvent(new DialogClosedEvent());
+            });
+        }
+
+        get state() {
+          return this.getAttribute("state");
+        }
+
+        set state(newValue) {
+          this.setAttribute("state", newValue);
+          this.dispatchEvent(
+            new DialogCloseStateChangedEvent(
+              !this.statesWithoutDialogClose.has(newValue)
+            )
+          );
+        }
+
+        _doShutdown(restart) {
+          shutdown(restart)
+            .then(() => {
+              this._emitShutdownStartedEvent(restart);
+              if (restart) {
+                this.state = this.states.RESTARTING;
+              } else {
+                this.state = this.states.SHUTTING_DOWN;
+                // We can't tell when the system has fully shut down, but assume
+                // that it's done after 30 seconds.
+                setTimeout(() => {
+                  this.state = this.states.SHUTDOWN_COMPLETE;
+                }, 30 * 1000);
+              }
+            })
+            .catch((error) => {
+              if (restart) {
+                this.dispatchEvent(
+                  new DialogFailedEvent({
+                    title: "Failed to Restart TinyPilot Device",
+                    details: error,
+                  })
+                );
+              } else {
+                this.dispatchEvent(
+                  new DialogFailedEvent({
+                    title: "Failed to Shut Down TinyPilot Device",
+                    details: error,
+                  })
+                );
+              }
+            });
+        }
+
+        _emitShutdownStartedEvent(restart) {
+          this.dispatchEvent(
+            new CustomEvent("shutdown-started", {
+              detail: { restart },
+              bubbles: true,
+              composed: true,
+            })
+          );
+        }
+      }
+    );
+  })();
+</script>

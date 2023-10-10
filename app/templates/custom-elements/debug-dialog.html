@@ -1,0 +1,193 @@
+<template id="debug-dialog-template">
+  <style>
+    @import "css/style.css";
+    @import "css/button.css";
+    @import "css/toggle.css";
+
+    #logs-loading,
+    #logs-success {
+      display: none;
+    }
+
+    :host([state="logs-loading"]) #logs-loading,
+    :host([state="logs-success"]) #logs-success {
+      display: block;
+    }
+
+    .action-buttons {
+      display: flex;
+      flex-direction: row;
+    }
+
+    .action-buttons button {
+      margin: 0 1rem 0 0;
+    }
+
+    #logs-success .logs {
+      max-height: 600px;
+    }
+
+    .toggle-container {
+      display: flex;
+      align-items: center;
+    }
+
+    .toggle {
+      margin: 0 0.5rem;
+    }
+  </style>
+
+  <div id="logs-loading">
+    <h3>Retrieving Debug Logs</h3>
+    <progress-spinner></progress-spinner>
+  </div>
+
+  <div id="logs-success">
+    <h3>Debug Logs</h3>
+    <div class="action-buttons">
+      <share-logs-button id="share-logs-button"></share-logs-button>
+      <div style="flex: 1"><!-- Spacer --></div>
+      <div class="toggle-container">
+        Hide Sensitive Data
+        <label class="toggle">
+          <input type="checkbox" id="include-sensitive-data" />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
+    <p class="logs logs-output monospace"></p>
+    <button class="close-btn" type="button">Close</button>
+  </div>
+</template>
+
+<script type="module">
+  import {
+    DialogClosedEvent,
+    DialogFailedEvent,
+    DialogCloseStateChangedEvent,
+  } from "/js/events.js";
+  import { getDebugLogs } from "/js/controllers.js";
+  import { redactSensitiveData } from "/js/logs.js";
+
+  (function () {
+    const template = document.querySelector("#debug-dialog-template");
+    customElements.define(
+      "debug-dialog",
+      class DebugDialog extends HTMLElement {
+        states = {
+          LOGS_LOADING: "logs-loading",
+          LOGS_SUCCESS: "logs-success",
+        };
+        statesWithoutDialogClose = new Set([this.states.LOGS_LOADING]);
+
+        constructor() {
+          super();
+          this.attachShadow({ mode: "open" });
+          // Ensure that these methods always refer to the correct "this",
+          // regardless of where they are called.
+          this.retrieveLogs = this.retrieveLogs.bind(this);
+        }
+
+        connectedCallback() {
+          this.shadowRoot.appendChild(template.content.cloneNode(true));
+
+          // Set the default to include sensitive data.
+          this.includeSensitiveData = true;
+
+          this._logText = {
+            original: null, // The text including all sensitive data as is.
+            redacted: null, // The text with sensitive data being redacted.
+          };
+
+          this.elements = {
+            includeSensitiveData: this.shadowRoot.getElementById(
+              "include-sensitive-data"
+            ),
+            logsText: this.shadowRoot.querySelector("#logs-success .logs"),
+            shareLogsButton:
+              this.shadowRoot.querySelector("#share-logs-button"),
+          };
+          this.elements.includeSensitiveData.addEventListener(
+            "input",
+            (event) => {
+              this.includeSensitiveData = !event.target.checked;
+              this._renderLogDisplayText();
+            }
+          );
+          this.shadowRoot.querySelectorAll(".close-btn").forEach((el) => {
+            el.addEventListener("click", () =>
+              this.dispatchEvent(new DialogClosedEvent())
+            );
+          });
+        }
+
+        get state() {
+          return this.getAttribute("state");
+        }
+
+        set state(newValue) {
+          this.setAttribute("state", newValue);
+          this.dispatchEvent(
+            new DialogCloseStateChangedEvent(
+              !this.statesWithoutDialogClose.has(newValue)
+            )
+          );
+        }
+
+        set includeSensitiveData(isIncluded) {
+          if (isIncluded) {
+            this.setAttribute("include-sensitive-data", "");
+          } else {
+            this.removeAttribute("include-sensitive-data");
+          }
+        }
+
+        get includeSensitiveData() {
+          return this.hasAttribute("include-sensitive-data");
+        }
+
+        retrieveLogs() {
+          this.state = this.states.LOGS_LOADING;
+          getDebugLogs()
+            .then((text) => {
+              this._logText = {
+                original: text,
+                redacted: redactSensitiveData(text),
+              };
+              this._renderLogDisplayText();
+              this.state = this.states.LOGS_SUCCESS;
+            })
+            .catch((error) => {
+              this.dispatchEvent(
+                new DialogFailedEvent({
+                  title: "Error Retrieving Debug Logs",
+                  details: error,
+                })
+              );
+            });
+        }
+
+        _getLogTextAsDisplayed() {
+          return this.elements.logsText.textContent;
+        }
+
+        /**
+         * (Re-)renders the log text panel, taking into account the current
+         * sensitivity settings.
+         * Note: calling this method will reset the state of the
+         * <share-logs-button> component, since the uploaded URL is stale when
+         * changing the logs display text.
+         */
+        _renderLogDisplayText() {
+          const logsDisplayText = this.includeSensitiveData
+            ? this._logText.original
+            : this._logText.redacted;
+          this.elements.logsText.textContent = logsDisplayText;
+          this.elements.shareLogsButton.initialize(
+            /*getLogsTextCb=*/ () => logsDisplayText
+          );
+        }
+      }
+    );
+  })();
+</script>

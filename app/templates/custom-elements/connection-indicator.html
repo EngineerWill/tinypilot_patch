@@ -1,0 +1,100 @@
+<template id="connection-indicator-template">
+  <style>
+    @import "css/style.css";
+
+    :host {
+      position: relative;
+    }
+
+    .status-bar-tooltip {
+      /* Slightly tweak the tooltip width, so that the “disconnected” text will
+         break in an optimal way, without creating extra space on the right. */
+      max-width: 23em;
+    }
+
+    :host(:hover) .status-bar-tooltip {
+      display: block;
+    }
+
+    .status {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+    }
+
+    .status-dot {
+      height: 1rem;
+      width: 1rem;
+      margin-right: 0.5rem;
+      border-radius: 50%;
+      display: inline-block;
+      /* Disconnected state */
+      background-color: var(--brand-red-bright);
+    }
+
+    :host([connected="true"]) .status-dot {
+      background-color: var(--brand-green-bright);
+    }
+
+    .connected-text,
+    .label-connected {
+      display: none;
+    }
+
+    :host([connected="true"]) .connected-text,
+    :host([connected="true"]) .label-connected {
+      display: block;
+    }
+
+    .disconnected-text,
+    .label-disconnected {
+      display: block;
+    }
+
+    :host([connected="true"]) .disconnected-text,
+    :host([connected="true"]) .label-disconnected {
+      display: none;
+    }
+  </style>
+  <div class="status">
+    <span class="status-dot"></span>
+    <div>
+      <span class="label-connected">Connected</span>
+      <span class="label-disconnected">Disconnected</span>
+    </div>
+  </div>
+  <div class="status-bar-tooltip">
+    <div class="connected-text">
+      Your browser is connected to your TinyPilot device.
+    </div>
+    <div class="disconnected-text">
+      Your browser is currently unable to connect to your TinyPilot device over
+      the network.
+    </div>
+  </div>
+</template>
+
+<script type="module">
+  (function () {
+    const template = document.querySelector("#connection-indicator-template");
+
+    customElements.define(
+      "connection-indicator",
+      class extends HTMLElement {
+        connectedCallback() {
+          this.attachShadow({ mode: "open" }).appendChild(
+            template.content.cloneNode(true)
+          );
+        }
+
+        get connected() {
+          return this.getAttribute("connected");
+        }
+
+        set connected(isConnected) {
+          this.setAttribute("connected", isConnected);
+        }
+      }
+    );
+  })();
+</script>

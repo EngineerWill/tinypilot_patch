@@ -1,0 +1,414 @@
+<template id="menu-bar-template">
+  <style>
+    @import "css/style.css";
+    @import "css/cursors.css";
+
+    a {
+      color: white;
+      display: block;
+      text-decoration: none;
+    }
+
+    a:hover {
+      cursor: pointer;
+    }
+
+    ul {
+      padding: 0;
+      margin: 0;
+    }
+
+    li {
+      display: block;
+      position: relative;
+      list-style: none;
+    }
+
+    li:hover > ul {
+      visibility: visible;
+      opacity: 1;
+      -webkit-transition: 0.3s;
+      transition: 0.3s;
+    }
+
+    :host {
+      display: flex;
+      height: 45px;
+      flex-direction: row;
+      align-items: center;
+      padding: 0 2rem;
+      color: white;
+      background-color: var(--brand-metallic-dark);
+      box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      -khtml-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+    }
+
+    :host([logo-only]) ul {
+      display: none;
+    }
+
+    .logo {
+      position: relative;
+      box-sizing: border-box;
+      height: 90%;
+    }
+
+    .logo img {
+      height: 100%;
+      position: relative;
+    }
+
+    .header-item {
+      box-sizing: border-box;
+      display: flex;
+      align-items: center;
+      height: 100%;
+    }
+
+    .items {
+      position: absolute;
+      left: -0.85rem;
+      top: 100%;
+      visibility: hidden;
+      opacity: 0;
+      min-width: 12em;
+    }
+
+    .item a {
+      padding: 0.5em 0.8em;
+    }
+
+    .group {
+      display: flex;
+      z-index: 1;
+      margin-left: 2rem;
+      padding-right: 17px;
+      height: 100%;
+      align-items: center;
+    }
+
+    .group > a:after {
+      --width: 5px;
+      --height: 7px;
+      content: "";
+      position: absolute;
+      top: 20px;
+      right: 0;
+      width: 0;
+      height: 0;
+      border-left: var(--width) solid transparent;
+      border-right: var(--width) solid transparent;
+      border-top: var(--height) solid var(--brand-creme-light);
+    }
+
+    .subgroup .items {
+      left: 100%;
+      top: 0;
+    }
+
+    .item {
+      margin: 0;
+      padding: 0;
+    }
+
+    .group ul a:hover {
+      background: var(--brand-metallic-light);
+    }
+
+    .group ul a {
+      background-color: var(--brand-metallic-medium);
+    }
+
+    .subgroup:after {
+      --width: 5px;
+      --height: 7px;
+      content: "";
+      position: absolute;
+      top: 16px;
+      right: 11px;
+      width: 0;
+      height: 0;
+      border-top: var(--width) solid transparent;
+      border-bottom: var(--width) solid transparent;
+      border-left: var(--height) solid var(--brand-creme-light);
+    }
+
+    #cursor-list a {
+      text-transform: capitalize;
+    }
+
+    .nav-selected a:after {
+      content: "✓";
+      position: absolute;
+      right: 10px;
+    }
+
+    .pro-badge:after {
+      position: absolute;
+      display: block;
+      z-index: var(--z-index-bar);
+      content: "PRO";
+      font-size: 0.8em; /* Equivalent of the x-height of the parent font size */
+      top: 0.75em;
+      right: 0.9em;
+      padding: 0 0.4em;
+      color: var(--brand-logo-accent-color);
+      border: 1px solid var(--brand-logo-accent-color);
+      border-radius: 0.8em;
+      pointer-events: none; /* “Click-through” to underlying menu item */
+    }
+
+    .external-link:after {
+      --icon-size: 0.85em;
+      position: absolute;
+      content: "";
+      top: 0.8em;
+      right: 0.8em;
+      background: url("/img/external-link-icon.svg") no-repeat;
+      background-size: var(--icon-size) var(--icon-size);
+      width: var(--icon-size);
+      height: var(--icon-size);
+    }
+  </style>
+
+  <div class="logo"><img src="/img/logo.svg" alt="TinyPilot logo" /></div>
+
+  <!-- The “System” menu is used for managing the TinyPilot device itself. -->
+  <ul class="groups header-item" role="menubar">
+    <li class="group" role="presentation">
+      <a role="menuitem">System</a>
+      <ul class="items" role="group">
+        <li class="item pro-badge" role="presentation">
+          <a data-onclick-event="mass-storage-dialog-requested" role="menuitem"
+            >Virtual Media</a
+          >
+        </li>
+        <li class="item" role="presentation">
+          <a data-onclick-event="update-dialog-requested" role="menuitem"
+            >Update</a
+          >
+        </li>
+        <li class="item" role="presentation">
+          <a
+            data-onclick-event="change-hostname-dialog-requested"
+            role="menuitem"
+            >Hostname</a
+          >
+        </li>
+        <li class="item" role="presentation">
+          <a
+            data-onclick-event="video-settings-dialog-requested"
+            role="menuitem"
+            >Video Settings</a
+          >
+        </li>
+        <li class="item" role="presentation">
+          <a data-onclick-event="debug-logs-dialog-requested" role="menuitem"
+            >Logs</a
+          >
+        </li>
+        <li class="item" role="presentation">
+          <a data-onclick-event="shutdown-dialog-requested" role="menuitem"
+            >Power</a
+          >
+        </li>
+      </ul>
+    </li>
+
+    <!-- The “Actions” menu contains operations which are carried out against
+         the connected target machine. -->
+    <li class="group" role="presentation">
+      <a role="menuitem">Actions</a>
+      <ul class="items" role="group">
+        <li class="item" role="presentation">
+          <a data-onclick-event="paste-dialog-requested" role="menuitem"
+            >Paste</a
+          >
+        </li>
+        <li class="item" role="presentation">
+          <a id="screenshot-btn" href="/snapshot" role="menuitem">Screenshot</a>
+        </li>
+        <li class="item pro-badge" role="presentation">
+          <a data-onclick-event="wake-on-lan-dialog-requested" role="menuitem"
+            >Wake on LAN</a
+          >
+        </li>
+        <li class="item subgroup" role="presentation">
+          <a role="menuitem">Keyboard Shortcuts</a>
+          <ul class="items" role="group">
+            <li class="item" role="presentation">
+              <a data-onclick-event="ctrl-alt-del-requested" role="menuitem"
+                >Ctrl + Alt + Del</a
+              >
+            </li>
+          </ul>
+        </li>
+      </ul>
+    </li>
+
+    <!-- The “View” menu contains UI-related settings, which are local to the
+         requesting client. -->
+    <li class="group" role="presentation">
+      <a role="menuitem">View</a>
+      <ul class="items" role="group">
+        <li class="item subgroup" role="presentation">
+          <a role="menuitem">Cursor</a>
+          <ul id="cursor-list" class="items" role="group">
+            <!-- JavaScript populates this list dynamically. -->
+          </ul>
+        </li>
+        <li class="item" id="keyboard-menu-item" role="presentation">
+          <a data-onclick-event="keyboard-visibility-toggled" role="menuitem"
+            >Show Keyboard</a
+          >
+        </li>
+        <li class="item" id="keystroke-history-menu-item" role="presentation">
+          <a data-onclick-event="keystroke-history-toggled" role="menuitem"
+            >Enable Key History</a
+          >
+        </li>
+        <li class="item" role="presentation">
+          <a data-onclick-event="fullscreen-requested" role="menuitem"
+            >Full Screen</a
+          >
+        </li>
+        <li class="item" role="presentation">
+          <a data-onclick-event="dedicated-window-requested" role="menuitem"
+            >Dedicated Window</a
+          >
+        </li>
+      </ul>
+    </li>
+
+    <!-- The ”Help” menu contains miscellaneous, subsidiary links and info. -->
+    <li class="group" role="presentation">
+      <a role="menuitem">Help</a>
+      <ul class="items" role="group">
+        <li class="item" role="presentation">
+          <a data-onclick-event="about-dialog-requested" role="menuitem"
+            >About</a
+          >
+        </li>
+        <li class="item external-link" role="presentation">
+          <a
+            href="https://tinypilotkvm.com/product/tinypilot-pro?ref=tinypilot-app"
+            rel="noopener noreferrer"
+            target="_blank"
+            role="menuitem"
+            >Upgrade to Pro</a
+          >
+        </li>
+        <li class="item external-link" role="presentation">
+          <a
+            href="https://github.com/tiny-pilot/tinypilot"
+            rel="noopener noreferrer"
+            target="_blank"
+            role="menuitem"
+            >Github</a
+          >
+        </li>
+      </ul>
+    </li>
+  </ul>
+</template>
+
+<script type="module">
+  (function () {
+    const template = document.querySelector("#menu-bar-template");
+
+    customElements.define(
+      "menu-bar",
+      class extends HTMLElement {
+        connectedCallback() {
+          this.attachShadow({ mode: "open" }).appendChild(
+            template.content.cloneNode(true)
+          );
+
+          // Handle “simple”/standard menu items that just emit a custom event
+          // without further ado.
+          this.shadowRoot
+            .querySelectorAll("[data-onclick-event]")
+            .forEach((el) => {
+              el.addEventListener("click", (evt) => {
+                this.emitCustomEvent(el.getAttribute("data-onclick-event"));
+                evt.preventDefault();
+              });
+            });
+
+          // Setup screenshot button.
+          this.shadowRoot
+            .getElementById("screenshot-btn")
+            .addEventListener("click", (evt) => {
+              evt.target.download =
+                "TinyPilot-" + new Date().toISOString() + ".jpg";
+            });
+
+          // Add cursor options to navbar.
+          const screenCursorOptions = [
+            "disabled", // To show on disconnect
+            "default", // Note that this is the browser default, not TinyPilot's default.
+            "none",
+            "crosshair",
+            "dot",
+            "pointer",
+          ];
+          const cursorList = this.shadowRoot.getElementById("cursor-list");
+          for (const cursorOption of screenCursorOptions.splice(1)) {
+            const cursorLink = document.createElement("a");
+            cursorLink.setAttribute("href", "#");
+            cursorLink.setAttribute("role", "menuitem");
+            cursorLink.innerText = cursorOption;
+            cursorLink.addEventListener("click", (evt) => {
+              this.emitCustomEvent("cursor-selected", { cursor: cursorOption });
+              evt.preventDefault();
+            });
+            const listItem = document.createElement("li");
+            listItem.appendChild(cursorLink);
+            listItem.classList.add("cursor-option", "item");
+            listItem.setAttribute("cursor", cursorOption);
+            listItem.setAttribute("role", "presentation");
+            cursorList.appendChild(listItem);
+          }
+        }
+
+        set isKeyboardVisible(isVisible) {
+          const menuItem = this.shadowRoot.getElementById("keyboard-menu-item");
+          menuItem.classList.toggle("nav-selected", isVisible);
+        }
+
+        set isInputIndicatorEnabled(isEnabled) {
+          const menuItem = this.shadowRoot.getElementById(
+            "keystroke-history-menu-item"
+          );
+          menuItem.classList.toggle("nav-selected", isEnabled);
+        }
+
+        emitCustomEvent(eventId, detail) {
+          this.dispatchEvent(
+            new CustomEvent(eventId, {
+              detail,
+              bubbles: true,
+              composed: true,
+            })
+          );
+        }
+
+        set cursor(newCursor) {
+          for (const cursorListItem of this.shadowRoot.querySelectorAll(
+            "#cursor-list li"
+          )) {
+            cursorListItem.classList.toggle(
+              "nav-selected",
+              newCursor === cursorListItem.getAttribute("cursor")
+            );
+          }
+        }
+      }
+    );
+  })();
+</script>

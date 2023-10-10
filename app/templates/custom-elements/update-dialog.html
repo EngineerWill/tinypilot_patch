@@ -1,0 +1,355 @@
+<template id="update-dialog-template">
+  <style>
+    @import "css/style.css";
+    @import "css/button.css";
+
+    #checking,
+    #update-available,
+    #latest,
+    #updating,
+    #update-finished,
+    #restarting,
+    #update-container {
+      display: none;
+    }
+
+    :host([state="checking"]) #checking {
+      display: block;
+    }
+
+    :host([state="update-available"]) #update-available {
+      display: block;
+    }
+
+    :host([state="latest"]) #latest {
+      display: block;
+    }
+
+    :host([state="updating"]) #update-container,
+    :host([state="updating"]) #updating {
+      display: block;
+    }
+
+    :host([state="update-finished"]) #update-container,
+    :host([state="update-finished"]) #update-finished {
+      display: block;
+    }
+
+    :host([state="restarting"]) #update-container,
+    :host([state="restarting"]) #restarting {
+      display: block;
+    }
+
+    .updating-spinner {
+      margin: 1rem 0;
+    }
+
+    #update-container details {
+      margin-top: 1rem;
+    }
+
+    #update-container summary {
+      cursor: pointer;
+    }
+
+    #update-container .logs {
+      max-height: 400px;
+      display: flex;
+      flex-direction: column-reverse;
+    }
+
+    #update-prompt-automatic {
+      display: none;
+    }
+
+    :host([update-kind="automatic"]) #update-prompt-automatic {
+      display: block;
+    }
+  </style>
+
+  <div id="checking">
+    <h3>Checking for Updates</h3>
+    <progress-spinner></progress-spinner>
+  </div>
+
+  <div id="update-available">
+    <h3>Update TinyPilot</h3>
+    <update-prompt-automatic
+      id="update-prompt-automatic"
+    ></update-prompt-automatic>
+    <!-- Note: in Pro, we have more update kinds here. -->
+  </div>
+
+  <div id="latest">
+    <h3>No Updates Available</h3>
+    <p>You are running the latest version of TinyPilot.</p>
+    <button id="ok-latest" type="button">OK</button>
+  </div>
+
+  <div id="update-container">
+    <div id="updating">
+      <h3>Please Wait While TinyPilot Updates</h3>
+      <p>This process will take several minutes.</p>
+      <div class="updating-spinner">
+        <progress-spinner></progress-spinner>
+      </div>
+    </div>
+
+    <div id="restarting">
+      <h3>Restarting to Complete Update</h3>
+      <progress-spinner></progress-spinner>
+    </div>
+
+    <div id="update-finished">
+      <h3>Update Complete</h3>
+      <button id="ok-finished" type="button">OK</button>
+    </div>
+
+    <details>
+      <summary>More details</summary>
+      <div class="logs logs-output monospace"></div>
+    </details>
+  </div>
+</template>
+
+<script type="module">
+  import { poll } from "/js/poll.js";
+  import {
+    DialogClosedEvent,
+    DialogFailedEvent,
+    DialogCloseStateChangedEvent,
+  } from "/js/events.js";
+  import { UpdateLogsStreamer } from "/js/updatelogs.js";
+  import {
+    checkStatus,
+    getLatestRelease,
+    getUpdateStatus,
+    getVersion,
+    shutdown,
+    update,
+  } from "/js/controllers.js";
+
+  (function () {
+    const template = document.querySelector("#update-dialog-template");
+
+    customElements.define(
+      "update-dialog",
+      class extends HTMLElement {
+        states = {
+          CHECKING: "checking",
+          UPDATE_AVAILABLE: "update-available",
+          LATEST: "latest",
+          UPDATING: "updating",
+          RESTARTING: "restarting",
+          UPDATE_FINISHED: "update-finished",
+        };
+        statesWithoutDialogClose = new Set([
+          this.states.CHECKING,
+          this.states.UPDATING,
+          this.states.RESTARTING,
+        ]);
+
+        connectedCallback() {
+          this.attachShadow({ mode: "open" }).appendChild(
+            template.content.cloneNode(true)
+          );
+
+          this.elements = {
+            updateLogs: this.shadowRoot.querySelector(
+              "#update-container .logs"
+            ),
+            updatePromptAutomatic: this.shadowRoot.querySelector(
+              "#update-prompt-automatic"
+            ),
+          };
+          this.shadowRoot
+            .getElementById("ok-latest")
+            .addEventListener("click", () => {
+              this.dispatchEvent(new DialogClosedEvent());
+            });
+          this.shadowRoot
+            .getElementById("ok-finished")
+            .addEventListener("click", () => {
+              location.reload();
+            });
+
+          this.elements.updatePromptAutomatic.addEventListener(
+            "update-prompt-confirmed",
+            () => {
+              this._doUpdate();
+            }
+          );
+          this.elements.updatePromptAutomatic.addEventListener(
+            "update-prompt-canceled",
+            () => {
+              this.dispatchEvent(new DialogClosedEvent());
+            }
+          );
+        }
+
+        get _state() {
+          return this.getAttribute("state");
+        }
+
+        set _state(newValue) {
+          this.setAttribute("state", newValue);
+          this.dispatchEvent(
+            new DialogCloseStateChangedEvent(
+              !this.statesWithoutDialogClose.has(newValue)
+            )
+          );
+        }
+
+        _renderPrompt(updateInfo) {
+          if (updateInfo.kind !== "automatic") {
+            throw new Error(`Unsupported update kind: ${updateInfo.kind}`);
+          }
+          this.setAttribute("update-kind", updateInfo.kind);
+        }
+
+        checkVersion() {
+          this._state = this.states.CHECKING;
+
+          Promise.all([getVersion(), getLatestRelease()])
+            .then(([localVersion, latestRelease]) => {
+              if (localVersion.version === latestRelease.version) {
+                this._state = this.states.LATEST;
+              } else {
+                this._renderPrompt(latestRelease);
+                this._state = this.states.UPDATE_AVAILABLE;
+              }
+            })
+            .catch((error) => {
+              this.dispatchEvent(
+                new DialogFailedEvent({
+                  title: "Failed to Retrieve Version Information",
+                  details: error,
+                })
+              );
+            });
+        }
+
+        _waitForUpdateToFinish() {
+          return poll({
+            fn: getUpdateStatus,
+            validate: (data) => data.status === "DONE" || data.updateError,
+            interval: 2 * 1000,
+          }).then((data) => {
+            if (data.updateError) {
+              return Promise.reject(data.updateError);
+            }
+          });
+        }
+
+        _performRestart() {
+          return shutdown(/*restart=*/ true)
+            .then(() => {
+              this._state = this.states.RESTARTING;
+              this.elements.updateLogs.textContent +=
+                "Restarting to complete update...\n";
+            })
+            .catch((error) => {
+              this.dispatchEvent(
+                new DialogFailedEvent({
+                  title: "Failed to Restart TinyPilot Device",
+                  details: error,
+                })
+              );
+            });
+        }
+
+        _waitForReboot() {
+          return poll({
+            fn: () => checkStatus(),
+            validate: (isUpAndRunning) => isUpAndRunning === true,
+            interval: 3 * 1000,
+            timeout: 180 * 1000,
+          })
+            .then(() => {
+              this._state = this.states.UPDATE_FINISHED;
+              this.elements.updateLogs.textContent +=
+                "Update is now complete.\n";
+            })
+            .catch((error) => {
+              this.dispatchEvent(
+                new DialogFailedEvent({
+                  title: "Failed to Restart",
+                  message:
+                    "Cannot reach TinyPilot after the update. The device " +
+                    "may have failed to reboot. Please manually reset your " +
+                    "device's power and try to connect again.",
+                  details: error,
+                })
+              );
+            });
+        }
+
+        async _startUpdateWithRetries() {
+          const maxAttempts = 3;
+          for (let i = 1; i <= maxAttempts; i++) {
+            try {
+              return await update();
+            } catch (error) {
+              if (i === maxAttempts) {
+                throw error;
+              }
+            }
+          }
+        }
+
+        _sleep(milliseconds) {
+          return new Promise((resolve) => setTimeout(resolve, milliseconds));
+        }
+
+        async _doUpdate() {
+          this._state = this.states.UPDATING;
+
+          const updateLogsStreamer = new UpdateLogsStreamer();
+          // Let the user know that the update logs are loading.
+          this.elements.updateLogs.textContent =
+            "Retrieving update logs from TinyPilot device...\n";
+          // Display new update logs as they come in.
+          updateLogsStreamer.onNewLogs((logs) => {
+            this.elements.updateLogs.textContent += logs;
+          });
+          updateLogsStreamer.start();
+
+          try {
+            await this._startUpdateWithRetries();
+          } catch (error) {
+            updateLogsStreamer.stop();
+            this.dispatchEvent(
+              new DialogFailedEvent({
+                title: "Failed to Start Update",
+                details: error,
+              })
+            );
+            return;
+          }
+
+          try {
+            await this._waitForUpdateToFinish();
+            await this._performRestart();
+            // Wait at least 10 seconds to ensure reboot has started before
+            // checking whether the system is back up.
+            await this._sleep(10 * 1000);
+            await this._waitForReboot();
+          } catch (error) {
+            updateLogsStreamer.stop();
+            this.dispatchEvent(
+              new DialogFailedEvent({
+                title: "Failed to Complete Update",
+                // Include full update logs in the error details, as it likely
+                // contains specific information about the error.
+                details: `${error}\n\n${this.elements.updateLogs.textContent}`,
+                isShareable: true,
+              })
+            );
+            return;
+          }
+          updateLogsStreamer.stop();
+        }
+      }
+    );
+  })();
+</script>

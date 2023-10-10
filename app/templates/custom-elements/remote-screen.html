@@ -1,0 +1,512 @@
+<template id="remote-screen-template">
+  <style>
+    @import "css/cursors.css";
+
+    :host {
+      --menu-bar-height: 45px;
+      --status-bar-height: 31px;
+      --bar-padding: 10px;
+      display: flex;
+      flex-direction: column;
+      box-sizing: border-box;
+      height: 100vh;
+      padding-top: calc(var(--menu-bar-height) + var(--bar-padding));
+      padding-bottom: calc(var(--status-bar-height) + var(--bar-padding));
+      align-items: center;
+    }
+
+    .screen-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      max-width: 100%;
+      max-height: 100%;
+    }
+
+    .screen {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+    }
+
+    :host([fullscreen="true"]) .screen-wrapper {
+      display: grid;
+      overflow: auto;
+    }
+
+    :host([fullscreen="true"]) .screen {
+      margin: auto;
+      max-width: 100vw;
+      max-height: 100vh;
+    }
+
+    :host([fullscreen="true"][fullscreen-is-full-width]) .screen {
+      width: 100%;
+    }
+
+    :host([fullscreen="true"][fullscreen-is-full-height]) .screen {
+      height: 100%;
+    }
+
+    :host([webrtc-enabled]) #mjpeg-output {
+      display: none;
+    }
+
+    :host(:not([webrtc-enabled])) #webrtc-output {
+      display: none;
+    }
+
+    #mobile-keyboard-input {
+      position: fixed;
+      top: -1000px;
+    }
+  </style>
+  <div class="screen-wrapper">
+    <input id="mobile-keyboard-input" autocapitalize="off" type="text" />
+
+    <img class="screen" id="mjpeg-output" />
+    <video class="screen" id="webrtc-output" playsinline></video>
+  </div>
+</template>
+
+<script type="module">
+  import { RateLimitedMouse } from "/js/mouse.js";
+  import { VideoStreamingModeChangedEvent } from "/js/events.js";
+
+  (function () {
+    const template = document.querySelector("#remote-screen-template");
+
+    customElements.define(
+      "remote-screen",
+      /**
+       * Displays the remote screen content using an MJPEG stream by default.
+       * The content stream can be toggled to either MJPEG or WebRTC.
+       */
+      class extends HTMLElement {
+        constructor() {
+          super();
+          this.onWindowResize = this.onWindowResize.bind(this);
+          this._onGlobalUserInteraction =
+            this._onGlobalUserInteraction.bind(this);
+          this.fillSpace = this.fillSpace.bind(this);
+          this._addScreenEventListeners =
+            this._addScreenEventListeners.bind(this);
+          this._getCurrentScreenElement =
+            this._getCurrentScreenElement.bind(this);
+
+          // Prevent drag on screen for Firefox.
+          this.addEventListener("dragstart", function (evt) {
+            evt.preventDefault();
+          });
+          // Prevent drop on screen for Firefox.
+          this.addEventListener("drop", function (evt) {
+            evt.preventDefault();
+          });
+          this.addEventListener("fullscreenchange", () => {
+            if (!document.fullscreenElement) {
+              this.fullscreen = false;
+              this.fullscreenIsFullWidth = false;
+              this.fullscreenIsFullHeight = false;
+            }
+          });
+          this.rateLimitedMouse = new RateLimitedMouse(
+            this.millisecondsBetweenMouseEvents,
+            (mouseEvent) => {
+              this.dispatchEvent(
+                new CustomEvent("mouse-event", {
+                  detail: mouseEvent,
+                  bubbles: true,
+                  composed: true,
+                })
+              );
+            }
+          );
+        }
+
+        connectedCallback() {
+          super.connectedCallback && super.connectedCallback();
+          this.attachShadow({ mode: "open" }).appendChild(
+            template.content.cloneNode(true)
+          );
+
+          this.elements = {
+            video: this.shadowRoot.getElementById("webrtc-output"),
+            image: this.shadowRoot.getElementById("mjpeg-output"),
+          };
+
+          // Note that we can’t assign a persistent `MediaStream` object to the
+          // `srcObject` attribute that we would retain over the lifecycle of
+          // this class, because otherwise Chrome shows an infinite loading
+          // spinner for the browser tab. Therefore, we need to initialize the
+          // source object lazily whenever we want to access it, and clear it
+          // when we don’t need it anymore.
+          this.elements.video.srcObject = null;
+
+          this._addScreenEventListeners(this.elements.video);
+          this._addScreenEventListeners(this.elements.image);
+
+          window.addEventListener("resize", this.onWindowResize);
+
+          // Detect whether this is a touchscreen device.
+          let isTouchScreen = false;
+          this.shadowRoot.addEventListener("touchend", () => {
+            isTouchScreen = true;
+          });
+          this.shadowRoot.addEventListener("click", () => {
+            if (isTouchScreen) {
+              this.shadowRoot.getElementById("mobile-keyboard-input").focus();
+            }
+          });
+
+          // On mobile, the keydown events function differently due to the OS
+          // attempting to autocomplete text. Instead of listening for keydown
+          // events, we listen for input events.
+          const mobileKeyboard = this.shadowRoot.getElementById(
+            "mobile-keyboard-input"
+          );
+          mobileKeyboard.addEventListener("input", () => {
+            // Force the autocomplete sequence to restart.
+            mobileKeyboard.blur();
+            mobileKeyboard.value = "";
+            mobileKeyboard.focus();
+          });
+
+          document.addEventListener("click", this._onGlobalUserInteraction);
+          document.addEventListener("keyup", this._onGlobalUserInteraction);
+        }
+
+        disconnectedCallback() {
+          window.removeEventListener("resize", this.onWindowResize);
+          document.removeEventListener("click", this._onGlobalUserInteraction);
+          document.removeEventListener("keyup", this._onGlobalUserInteraction);
+          super.disconnectedCallback && super.disconnectedCallback();
+        }
+
+        _addScreenEventListeners(screenElement) {
+          // Forward all mouse activity that occurs over the screen element.
+          screenElement.addEventListener("mousemove", (evt) => {
+            // Ensure that mouse drags don't attempt to drag the screen element.
+            evt.preventDefault();
+
+            this.rateLimitedMouse.onMouseMove(evt);
+          });
+          screenElement.addEventListener("mousedown", (evt) => {
+            this.rateLimitedMouse.onMouseDown(evt);
+          });
+          screenElement.addEventListener("mouseup", (evt) => {
+            this.rateLimitedMouse.onMouseUp(evt);
+          });
+          screenElement.addEventListener("wheel", (evt) => {
+            evt.preventDefault();
+            this.rateLimitedMouse.onWheel(evt);
+          });
+
+          // Ignore the context menu so that it doesn't block the screen when
+          // the user right-clicks.
+          screenElement.addEventListener("contextmenu", (evt) => {
+            evt.preventDefault();
+          });
+        }
+
+        get fullscreen() {
+          return this.getAttribute("fullscreen") === "true";
+        }
+
+        set fullscreen(newValue) {
+          this.setAttribute("fullscreen", newValue);
+        }
+
+        get millisecondsBetweenMouseEvents() {
+          return parseInt(
+            this.getAttribute("milliseconds-between-mouse-events")
+          );
+        }
+
+        set millisecondsBetweenMouseEvents(newValue) {
+          this.setAttribute("milliseconds-between-mouse-events", newValue);
+        }
+
+        get cursor() {
+          return this.shadowRoot
+            .querySelector(".screen-wrapper")
+            .getAttribute("cursor");
+        }
+
+        set cursor(newValue) {
+          this.shadowRoot
+            .querySelector(".screen-wrapper")
+            .setAttribute("cursor", newValue);
+        }
+
+        set fullscreenIsFullWidth(enabled) {
+          if (enabled) {
+            this.setAttribute("fullscreen-is-full-width", "");
+          } else {
+            this.removeAttribute("fullscreen-is-full-width");
+          }
+        }
+
+        set fullscreenIsFullHeight(enabled) {
+          if (enabled) {
+            this.setAttribute("fullscreen-is-full-height", "");
+          } else {
+            this.removeAttribute("fullscreen-is-full-height");
+          }
+        }
+
+        get webrtcEnabled() {
+          return this.hasAttribute("webrtc-enabled");
+        }
+
+        set webrtcEnabled(enabled) {
+          if (enabled) {
+            this.setAttribute("webrtc-enabled", "");
+          } else {
+            this.removeAttribute("webrtc-enabled");
+          }
+        }
+
+        static get observedAttributes() {
+          return ["fullscreen", "milliseconds-between-mouse-events"];
+        }
+
+        size() {
+          const screen = this._getCurrentScreenElement();
+          return { width: screen.clientWidth, height: screen.clientHeight };
+        }
+
+        attributeChangedCallback(name, oldValue, newValue) {
+          if (name === "fullscreen" && newValue === "true") {
+            const screenWrapper =
+              this.shadowRoot.querySelector(".screen-wrapper");
+            if (screenWrapper.requestFullscreen) {
+              screenWrapper.requestFullscreen();
+            } else if (screenWrapper.mozRequestFullScreen) {
+              screenWrapper.mozRequestFullScreen();
+            } else if (screenWrapper.webkitRequestFullscreen) {
+              screenWrapper.webkitRequestFullscreen();
+            } else if (screenWrapper.msRequestFullscreen) {
+              screenWrapper.msRequestFullscreen();
+            }
+          } else if (name === "milliseconds-between-mouse-events") {
+            this.rateLimitedMouse.setTimeoutWindow(parseInt(newValue));
+          }
+        }
+
+        onWindowResize() {
+          if (this.fullscreen) {
+            this.fillSpace();
+          }
+        }
+
+        /**
+         * Adjust the screen size so that it is either full-width or
+         * full-height in fullscreen mode, depending on which better maximizes
+         * space for the remote screen's aspect ratio. This is needed, because
+         * otherwise the calculation of the mouse coordinates in fullscreen mode
+         * does not yield correct results, and hence the mouse cursor position
+         * appears to be slightly off.
+         */
+        fillSpace() {
+          const screen = this._getCurrentScreenElement();
+          const windowRatio = window.innerWidth / window.innerHeight;
+          // Get the content dimensions of either the video or image element.
+          // https://developer.mozilla.org/en-US/docs/Web/API/CSS_Object_Model/Determining_the_dimensions_of_elements#whats_the_size_of_the_displayed_content
+          const screenRatio = screen.clientWidth / screen.clientHeight;
+          if (screenRatio > windowRatio) {
+            this.fullscreenIsFullHeight = false;
+            this.fullscreenIsFullWidth = true;
+          } else {
+            this.fullscreenIsFullWidth = false;
+            this.fullscreenIsFullHeight = true;
+          }
+        }
+
+        /**
+         * Displays the WebRTC stream while hiding the MJPEG stream.
+         *
+         * Enabling WebRTC only succeeds if there is a "video" stream track
+         * available. Otherwise, calling this method is a no-op.
+         *
+         * Autoplay of WebRTC media tracks might be restricted by the UserAgent,
+         * either through explicit user settings, or due to automatic detection
+         * mechanisms, such as whether the user had interacted with the website
+         * prior to the playback (i.e., by clicking somewhere). Our strategy is:
+         * - If both video and audio are blocked, we stay on MJPEG.
+         * - If only audio is blocked, then we will display video, and try to
+         *   unmute the audio track. (Which might not succeed, though.)
+         */
+        async enableWebrtc() {
+          const video = this.elements.video;
+          if (!video.srcObject) {
+            return;
+          }
+
+          // We only proceed enabling WebRTC if we have at least one video
+          // track. We don’t want to switch yet if the only thing we have is an
+          // audio track.
+          const stream = video.srcObject;
+          if (stream.getVideoTracks().length === 0) {
+            return;
+          }
+
+          // We optimistically unmute before we start the playback, because we
+          // cannot tell ahead of time whether audio is blocked by the
+          // UserAgent.
+          video.muted = false;
+          // It’s important that we hold off on displaying the WebRTC stream
+          // until the video playback has started, to ensure a smooth visual
+          // transition of the remote screen without any flickering or
+          // interruption.
+          try {
+            await this._playWebrtcVideo();
+          } catch {
+            return;
+          }
+          this.webrtcEnabled = true;
+          this.elements.image.removeAttribute("src");
+          this.dispatchEvent(new VideoStreamingModeChangedEvent("H264"));
+        }
+
+        /**
+         * Adds a track to the WebRTC media stream.
+         *
+         * @param {MediaStreamTrack} mediaStreamTrack - https://developer.mozilla.org/en-US/docs/Web/API/MediaStreamTrack
+         */
+        async addWebrtcStreamTrack(mediaStreamTrack) {
+          const video = this.elements.video;
+          if (!video.srcObject) {
+            // Lazy-initialize the media stream. (See comment in
+            // `connectedCallback`.)
+            video.srcObject = new MediaStream();
+          }
+          const stream = video.srcObject;
+
+          // Ensure that the stream doesn't contain multiple tracks of the same
+          // kind (i.e., multiple audio or video tracks).
+          // For example, if an additional new video track is being added, first
+          // remove the old video track.
+          for (const track of stream.getTracks()) {
+            if (
+              track.kind === mediaStreamTrack.kind &&
+              track.id !== mediaStreamTrack.id
+            ) {
+              stream.removeTrack(track);
+            }
+          }
+
+          // Note: If the specified track is already in the stream's track set,
+          // the addTrack method has no effect.
+          // https://developer.mozilla.org/en-US/docs/Web/API/MediaStream/addTrack
+          stream.addTrack(mediaStreamTrack);
+        }
+
+        /**
+         * Removes a track from the WebRTC media stream.
+         *
+         * @param {MediaStreamTrack} mediaStreamTrack - https://developer.mozilla.org/en-US/docs/Web/API/MediaStreamTrack
+         */
+        removeWebrtcStreamTrack(mediaStreamTrack) {
+          const video = this.elements.video;
+          if (!video.srcObject) {
+            return;
+          }
+          const stream = video.srcObject;
+          stream.removeTrack(mediaStreamTrack);
+        }
+
+        /**
+         * Starts the WebRTC video playback. The caller is responsible to make
+         * sure that the media tracks are present.
+         *
+         * In case the video element is a) not muted, and b) the UserAgent
+         * blocks audio, then the browser might prevent the playback altogether.
+         * This method will then automatically try to mute the video element and
+         * retry playing, so that we at least end up having video active.
+         */
+        async _playWebrtcVideo(shouldRetryWithMuting = true) {
+          const video = this.elements.video;
+
+          try {
+            await video.play();
+          } catch (error) {
+            // The `AbortError` error typically means that something had
+            // canceled the video initialization while it was in-flight. In our
+            // case, this usually originates from another, simultaneous play
+            // request that got stopped (which then stops all other play
+            // requests via this error). We can’t do anything about this here,
+            // so we abort and leave it to that other (succeeding) play request
+            // to continue handling the issue.
+            if (error.name === "AbortError") {
+              console.debug(error);
+              throw error;
+            }
+
+            // The `NotAllowedError` means that playing video is not allowed,
+            // most likely because the UserAgent has blocked audio or video
+            // autoplay. If this happens, the browser usually stops the video
+            // element altogether (and not just the audio). If only audio was
+            // blocked, we can try to recover video by muting the stream.
+            // Overall, we only attempt this once, to avoid an infinite
+            // recursion.
+            if (error.name === "NotAllowedError" && shouldRetryWithMuting) {
+              console.debug(error);
+              video.muted = true;
+              return this._playWebrtcVideo(/*shouldRetryWithMuting=*/ false);
+            }
+
+            // For any other errors, the only thing we can do is log them.
+            console.error("Failed to play WebRTC media: " + error);
+            throw error;
+          }
+        }
+
+        /**
+         * Callback for detecting an explicit user interaction on the site. We
+         * hook into these events for trying to unmute the video stream, because
+         * per UserAgent policies, a user interaction can make the browser
+         * unblock audio (but doesn’t have to).
+         *
+         * Note that not all user interactions qualify for unmuting – e.g., a
+         * keystroke on a letter works, but a modifier key or ESC is not
+         * eligible. We have to act on best guess basis here.
+         */
+        _onGlobalUserInteraction() {
+          const video = this.elements.video;
+          if (!this.webrtcEnabled || video.muted === false) {
+            return;
+          }
+          // If audio is blocked by the UserAgent, then trying to unmute might
+          // stop (pause) the video stream altogether. Therefore, we need to
+          // check this afterwards and recover.
+          video.muted = false;
+          if (video.paused) {
+            this._playWebrtcVideo();
+          }
+        }
+
+        /**
+         * Displays the MJPEG stream while hiding the WebRTC stream.
+         */
+        enableMjpeg() {
+          if (this.elements.image.hasAttribute("src")) {
+            return;
+          }
+          this.elements.image.src = "/stream?advance_headers=1";
+          this.webrtcEnabled = false;
+          // Clean up the media stream. (See comment in `connectedCallback`.)
+          this.elements.video.srcObject = null;
+          this.dispatchEvent(new VideoStreamingModeChangedEvent("MJPEG"));
+        }
+
+        _getCurrentScreenElement() {
+          if (this.webrtcEnabled) {
+            return this.elements.video;
+          } else {
+            return this.elements.image;
+          }
+        }
+      }
+    );
+  })();
+</script>

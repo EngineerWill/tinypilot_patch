@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>TinyPilot Styleguide</title>
+    <link rel="stylesheet" type="text/css" href="/css/style.css" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+  </head>
+  <style>
+    @import "css/icons.css";
+    @import "css/toggle.css";
+
+    body {
+      /* Override to prevent dark-mode, otherwise we would need to make several
+         color adjustments in the styleguide to account for the dark background.
+         That’s not worth the effort, since the styleguide is internal. */
+      background: var(--brand-creme-light) !important;
+    }
+    main {
+      margin: 1rem auto;
+      width: 40rem;
+    }
+    .colorcard {
+      float: left;
+      height: 5rem;
+      min-width: 8rem;
+    }
+    .section {
+      margin-top: 2.5em;
+      margin-bottom: 1em;
+    }
+    h2.section {
+      border-bottom: 1px solid black;
+    }
+  </style>
+  <body>
+    <!-- prettier-ignore -->
+    {% for child_template in custom_elements_files %}
+      {% include child_template.replace('./app/templates/', '') %}
+    {% endfor %}
+    <main>
+      <div
+        style="
+          background-color: var(--brand-metallic-dark);
+          text-align: center;
+          padding: 1rem;
+        "
+      >
+        <img src="/img/logo.svg" alt="Tiny Pilot" />
+      </div>
+
+      <h1 style="text-align: center">Style Guide</h1>
+      <p>
+        This style guide is an ongoing collection of all things visual that make
+        up the brand, such as colours, fonts, patterns or UI components.
+      </p>
+
+      <h2 class="section">Text</h2>
+      <h3>Typeface</h3>
+      <p>
+        We use “Overpass” for regular text. Technical text (e.g. logs or error
+        messages) is set in the monospace variant “<span class="monospace"
+          >Overpass Mono</span
+        >”.
+      </p>
+      <h3>Text style</h3>
+      <p>
+        To make subsidiary elements look less prominent (e.g., hints or labels),
+        the font size and/or darkness of the text can be slightly reduced.
+      </p>
+
+      <h2 class="section">Colors</h2>
+      <div>
+        <div
+          class="colorcard"
+          style="background-color: var(--brand-metallic-dark)"
+        ></div>
+        <div
+          class="colorcard"
+          style="background-color: var(--brand-metallic-medium)"
+        ></div>
+        <div
+          class="colorcard"
+          style="background-color: var(--brand-metallic-light)"
+        ></div>
+        <div
+          class="colorcard"
+          style="background-color: var(--brand-metallic-bright)"
+        ></div>
+        <div
+          class="colorcard"
+          style="background-color: var(--brand-metallic-brighter)"
+        ></div>
+        <br style="clear: both" />
+        <div
+          class="colorcard"
+          style="background-color: var(--brand-blue-dark)"
+        ></div>
+        <div
+          class="colorcard"
+          style="background-color: var(--brand-blue)"
+        ></div>
+        <div
+          class="colorcard"
+          style="background-color: var(--brand-blue-light)"
+        ></div>
+        <br style="clear: both" />
+        <div
+          class="colorcard"
+          style="background-color: var(--brand-red-dark)"
+        ></div>
+        <div class="colorcard" style="background-color: var(--brand-red)"></div>
+        <div
+          class="colorcard"
+          style="background-color: var(--brand-red-light)"
+        ></div>
+        <div
+          class="colorcard"
+          style="background-color: var(--brand-red-background)"
+        ></div>
+        <br style="clear: both" />
+        <div
+          class="colorcard"
+          style="background-color: var(--brand-green-dark)"
+        ></div>
+        <div
+          class="colorcard"
+          style="background-color: var(--brand-green)"
+        ></div>
+        <div
+          class="colorcard"
+          style="background-color: var(--brand-green-light)"
+        ></div>
+        <br style="clear: both" />
+        <div
+          class="colorcard"
+          style="background-color: var(--brand-orange-dark)"
+        ></div>
+        <div
+          class="colorcard"
+          style="background-color: var(--brand-orange-light)"
+        ></div>
+        <div
+          class="colorcard"
+          style="background-color: var(--brand-sand-light)"
+        ></div>
+      </div>
+
+      <div style="clear: both"></div>
+
+      <h2 class="section">Buttons</h2>
+      <ul>
+        <li>
+          Button labels should have meaningful wording, e.g. “Apply Changes” or
+          “Restart Now” instead of just “Okay”.
+        </li>
+        <li>Use <i>Title Case</i>.</li>
+        <li>
+          If ever feasible, call-to-action buttons should only appear once. If
+          there are multiple regular actions side by side, the “regular” action
+          button should be used. As a rule of thumb: the call-to-action button
+          terminates a dialog by triggering its main function; whereas the
+          action button executes secondary operations <em>within</em> a dialog,
+          while keeping the dialog open.
+        </li>
+        <li>
+          Buttons should be disabled if it’s obvious that an operation cannot be
+          carried out. For example, a “save” button next to an input field
+          should only be enabled if there was an actual change, or if the input
+          field contains something. Don’t disable buttons in non-obvious cases,
+          though, for example when the input format is invalid.
+        </li>
+      </ul>
+      <h3>Default Button</h3>
+      <button>Default</button>
+      <p>For harmless operations like “close” or “cancel”.</p>
+      <h3>Action Button</h3>
+      <button class="btn-action">Action</button>
+      <button class="btn-action" disabled>(disabled)</button>
+      <p>
+        For operations that do or apply something. (Don’t use for the primary
+        call-to-action.)
+      </p>
+      <h3>Success Button (Primary Action)</h3>
+      <button class="btn-success">Success</button>
+      <button class="btn-success" disabled>(disabled)</button>
+      <p>For the main (and non-destructive) call-to-action.</p>
+      <h3>Danger Button (Primary Action)</h3>
+      <button class="btn-danger">Danger</button>
+      <button class="btn-danger" disabled>(disabled)</button>
+      <p>For destructive call-to-actions like “delete” or “shutdown”.</p>
+      <h3>Dropdown Button</h3>
+      <p>A button that groups multiple related actions.</p>
+      <dropdown-button>
+        <button slot="button" class="btn-action">
+          Dropdown
+          <span class="icon-arrow"></span>
+        </button>
+        <li slot="item">Action 1</li>
+        <li slot="item">Action 2</li>
+        <li slot="item" class="disabled">Action 3</li>
+      </dropdown-button>
+      <dropdown-button>
+        <button slot="button">
+          <span class="icon-arrow"></span>
+        </button>
+        <li slot="item">Action 1</li>
+        <li slot="item">Action 2</li>
+        <li slot="item" class="disabled">Action 3</li>
+      </dropdown-button>
+      <h3>Toggle Button</h3>
+      <p>
+        A button representing a binary state that can be toggled on and off. In
+        contrast to a checkbox, the toggle button is used outside of forms and
+        the click-action is carried out immediately.
+      </p>
+      <label class="toggle">
+        <input type="checkbox" />
+        <span class="toggle-slider"></span>
+      </label>
+      <h3>Text Button</h3>
+      <p>
+        A button that is just regular text. Only use this for minor actions, and
+        in a context where the default button would look too prominent. The text
+        button doesn’t have a disabled state; instead, it should be hidden.
+      </p>
+      <p>
+        <span class="btn-text">Click Me</span>
+      </p>
+      <h3>Button for External Links</h3>
+      <p>
+        If a button opens an external website, then it should be an
+        “Action”-type button with an “External Link” icon on the right-hand
+        side. External links should open in a new tab by default.
+      </p>
+      <a
+        href="about:blank"
+        target="_blank"
+        class="btn btn-action btn-external-link"
+        rel="noopener noreferer"
+        >Open Link</a
+      >
+
+      <h2 class="section">Input</h2>
+      <ul>
+        <li>
+          For text input fields that expect non-English words, use any/all of
+          the following attributes to
+          <a href="https://github.com/tiny-pilot/tinypilot/pull/972"
+            >prevent browsers from spellchecking</a
+          >
+          or auto-correcting the text:
+          <pre>autocomplete="off"</pre>
+          <pre>autocorrect="off"</pre>
+          <pre>autocapitalize="off"</pre>
+          <pre>spellcheck="false"</pre>
+        </li>
+        <li>
+          If there is a call-to-action button associated with an input field,
+          then pressing the “Enter”/“Return” key on the keyboard should trigger
+          the call-to-action. The behaviour should be the same as if the button
+          was clicked with the mouse; that implies that the call-to-action
+          shouldn’t trigger in case the button is in disabled state.
+        </li>
+        <li>
+          If the input value is required to adhere to a certain format, use the
+          placeholder attribute to help the user intuitively grasp the expected
+          format. The placeholder text should be a made-up but semantically
+          correct value. The placeholder should make it obvious to the reader
+          that it’s just an example value by containing words like “example” or
+          artificial sequences like “1234”. Omit prefixes such as “<span
+            class="monospace"
+            >e.g., </span
+          >”.<br />
+          A placeholder is not needed for input fields that expect free text, or
+          when the validation rules are too trivial to allow for expressive or
+          meaningful demo usage.
+        </li>
+        <li>
+          Make the width of the input field so that it’s reasonably coherent
+          with the expected length of the input copy. Note, though, that there
+          might be other factors for determining a good width of the input
+          field, such as visual alignment with other nearby UI elements.
+        </li>
+      </ul>
+      <p>
+        <strong>Example:</strong><br />
+        Your Website:
+        <input
+          type="text"
+          placeholder="https://example.org"
+          style="width: 15em; margin-left: 0.5em"
+          autocomplete="off"
+          autocorrect="off"
+          autocapitalize="off"
+          spellcheck="false"
+        />
+      </p>
+      <h3>Font Usage</h3>
+      <p>
+        Use the default font for input fields that expect “free” or regular
+        text. Use the monospace font for “technical” values, to help the user
+        examine the input copy character by character (e.g., IP addresses).
+      </p>
+      <div>
+        <input
+          type="text"
+          style="width: 15rem"
+          value="My name is Pilot. Tiny Pilot."
+        />
+        <button>Send</button>
+      </div>
+      <div>
+        <input
+          type="text"
+          class="monospace"
+          style="width: 15rem"
+          value="192.168.0.1"
+        />
+        <button>Send</button>
+      </div>
+
+      <h2 class="section">Inline Message</h2>
+      <p>
+        When we want to display a feedback message (error or warning), we can
+        use the inline-message component:
+      </p>
+      <inline-message variant="error" show>
+        <strong>Error:</strong> We use inline errors for “minor” issues that the
+        user can fix right away. For example, validation errors of input fields.
+      </inline-message>
+      <br />
+      <inline-message variant="warning" show>
+        <strong>Warning:</strong> We use warnings to raise attention about
+        potential problems. In contrast to errors, these don’t necessarily
+        require fixing for the user to proceed.
+      </inline-message>
+      <p>Some notes about usage:</p>
+      <ul>
+        <li>
+          The text should be left-aligned, even in an otherwise centered
+          context.
+        </li>
+        <li>
+          If sensible, the text should be prefaced with a short error headword
+          (set in bold) that concisely summarizes what the message is about. For
+          example: <strong>Invalid Input</strong>, or (for generic messages)
+          just <strong>Error</strong> or <strong>Warning</strong>.
+        </li>
+      </ul>
+
+      <h2 class="section">Headlines</h2>
+      <p>
+        Use
+        <a href="https://en.wikipedia.org/wiki/Title_case" target="_blank">
+          “Title Case”
+        </a>
+        in all headlines.
+      </p>
+
+      <h2 class="section">Overlay Dialogs</h2>
+      <h3>Design</h3>
+      <p>
+        Click on the buttons to learn how a dialog inside an overlay is supposed
+        to be designed.
+      </p>
+      <!-- Overlay with single call-to-action: -->
+      <button id="show-overlay-with-primary-action-btn" class="btn-action">
+        Overlay with Primary Action
+      </button>
+      <overlay-panel id="overlay-with-primary-action">
+        <h3>Overlay with Primary Action</h3>
+        <div>
+          This overlay style is used for linear and straightforward flows that
+          have a single purpose or end state, like a prompt or confirmation. It
+          contains a call-to-action button and a cancel button (in that order)
+          at the bottom. When clicked, they also terminate the dialog.
+        </div>
+        <button class="close-overlay-with-primary-action btn-success">
+          Confirm
+        </button>
+        <button class="close-overlay-with-primary-action">Cancel</button>
+      </overlay-panel>
+      <script type="module">
+        import { DialogClosedEvent } from "/js/events.js";
+
+        document
+          .getElementById("show-overlay-with-primary-action-btn")
+          .addEventListener("click", () => {
+            document.getElementById("overlay-with-primary-action").show();
+          });
+        Array.from(
+          document.getElementsByClassName("close-overlay-with-primary-action")
+        ).forEach((button) =>
+          button.addEventListener("click", (evt) => {
+            evt.target.dispatchEvent(new DialogClosedEvent());
+          })
+        );
+      </script>
+      <!-- Overlay with feature: -->
+      <button id="show-overlay-with-feature-btn" class="btn-action">
+        Overlay with Feature
+      </button>
+      <overlay-panel id="overlay-with-feature">
+        <h3>Overlay with Feature</h3>
+        <div>
+          <button class="btn-action" onclick="alert('Done.')">Action 1</button>
+          <button class="btn-action" onclick="alert('Done.')">Action 2</button>
+          <button class="btn-action" onclick="alert('Done.')">Action 3</button>
+        </div>
+        <div>
+          When the user can carry out “secondary” actions within the overlay
+          that don’t terminate the dialog itself, the blue action buttons should
+          be used for that. They also shouldn’t appear at the bottom.
+        </div>
+        <button id="close-overlay-with-feature-btn">Close</button>
+      </overlay-panel>
+      <script type="module">
+        import { DialogClosedEvent } from "/js/events.js";
+
+        document
+          .getElementById("show-overlay-with-feature-btn")
+          .addEventListener("click", () => {
+            document.getElementById("overlay-with-feature").show();
+          });
+        document
+          .getElementById("close-overlay-with-feature-btn")
+          .addEventListener("click", (evt) => {
+            evt.target.dispatchEvent(new DialogClosedEvent());
+          });
+      </script>
+      <!-- Error overlay: -->
+      <overlay-panel id="error-overlay" variant="danger">
+        <error-dialog id="error-dialog"></error-dialog>
+      </overlay-panel>
+      <button id="show-error-overlay-btn" class="btn-danger">
+        Open Error Overlay
+      </button>
+      <script type="module">
+        document
+          .getElementById("show-error-overlay-btn")
+          .addEventListener("click", () => {
+            document.getElementById("error-dialog").setup({
+              title: "Example Error Message",
+              message:
+                "The title is set in Title Case. The message should be" +
+                " user-friendly and ideally provide some guidance. Technical" +
+                " error messages can be displayed in the “details” box below.",
+              details:
+                "" +
+                "dummyElementFailed: line 502\n" +
+                "  dummyParentElement returned unexpected response: foo\n" +
+                "    exhausted resources.\n" +
+                "Location: 0x88b9d154cd90076610f3fc27df06bbd8b37b62ffe1fa8ade" +
+                "1d469d5cf911820fcc850249accacba5a690720bb9eca9813662348ff6a1" +
+                "ace3c0076610f3fc2711820fcdf06bb\n" +
+                "Stacktrace:\n" +
+                "  fooBarBaz\n".repeat(80),
+            });
+            document.getElementById("error-overlay").show();
+          });
+      </script>
+      <h3>Loading States</h3>
+      <p>
+        When the overlay is in a loading state, we generally do not want the
+        user to close it. Therefore, we don’t show any close button, and we also
+        disable the overlay’s `x` close button (see the
+        <a
+          href="https://github.com/tiny-pilot/tinypilot/blob/master/CONTRIBUTING.md#web-components-conventions"
+          target="_blank"
+        >
+          Contributing Guidelines
+        </a>
+        for details).
+      </p>
+      <h3>Primary Actions</h3>
+      <p>
+        The buttons for primary actions should be located at the bottom of the
+        dialog. These primary actions should either advance the dialog into a
+        different state, or they should terminate the dialog altogether.
+      </p>
+      <p>
+        If there is a primary button for closing or canceling the dialog, it
+        should always be the rightmost one.
+      </p>
+
+      <h2 class="section">Progress Indicator</h2>
+      <p>
+        The spinner is used to indicate that an operation is in progress. The
+        styling can be adjusted through CSS variables.
+      </p>
+      <progress-spinner></progress-spinner>
+      <progress-spinner
+        style="--size: 2rem; --thickness: 5px"
+      ></progress-spinner>
+    </main>
+  </body>
+</html>

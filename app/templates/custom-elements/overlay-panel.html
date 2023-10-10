@@ -1,0 +1,132 @@
+<template id="overlay-panel-template">
+  <style>
+    @import "css/style.css";
+
+    :host {
+      display: none;
+      position: fixed;
+      overflow: auto;
+      width: 100%;
+      height: 100%;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(0, 0, 0, 0.7);
+      z-index: var(--z-index-overlay);
+    }
+
+    :host([show="true"]) {
+      display: block;
+    }
+
+    #panel {
+      position: relative;
+      max-width: 800px;
+      margin: 100px auto;
+      padding: 2rem;
+      text-align: center;
+      border-radius: var(--border-radius);
+    }
+
+    #close-button {
+      display: block;
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 2.3rem;
+      padding: 0;
+      margin: 0.35rem;
+      border: 1px solid black;
+      opacity: 0.55;
+    }
+
+    :host(:not([show-close-button])) #close-button {
+      display: none;
+    }
+
+    #close-button svg {
+      display: block;
+      margin: 0.3rem;
+    }
+
+    :host([variant="default"]) #panel,
+    :host([variant=""]) #panel,
+    :host(:not([variant])) #panel {
+      border-top: none;
+      background-color: var(--brand-creme-light);
+    }
+
+    :host([variant="danger"]) #panel {
+      border-top: 0.4rem solid var(--brand-red-bright);
+      background-color: var(--brand-red-background);
+    }
+  </style>
+
+  <div id="panel">
+    <button id="close-button" title="Close Overlay">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 18">
+        <path
+          fill="#fff"
+          d="M14.53 4.53l-1.06-1.06L9 7.94 4.53 3.47 3.47 4.53 7.94 9l-4.47 4.47 1.06 1.06L9 10.06l4.47 4.47 1.06-1.06L10.06 9z"
+        />
+      </svg>
+    </button>
+    <slot></slot>
+  </div>
+</template>
+
+<script type="module">
+  (function () {
+    const template = document.querySelector("#overlay-panel-template");
+
+    customElements.define(
+      "overlay-panel",
+      class extends HTMLElement {
+        connectedCallback() {
+          this.attachShadow({ mode: "open" }).appendChild(
+            template.content.cloneNode(true)
+          );
+          this.show = this.show.bind(this);
+          this.shadowRoot.addEventListener("dialog-closed", () =>
+            this.show(false)
+          );
+          this.shadowRoot.addEventListener("dialog-failed", () =>
+            // This event is further handled in `app.js`.
+            this.show(false)
+          );
+
+          this.setAttribute("show-close-button", "");
+          this.shadowRoot.addEventListener(
+            "dialog-close-state-changed",
+            (e) => {
+              if (e.detail.canBeClosed) {
+                this.setAttribute("show-close-button", "");
+              } else {
+                this.removeAttribute("show-close-button");
+              }
+            }
+          );
+          this.shadowRoot
+            .getElementById("close-button")
+            .addEventListener("click", () => this.show(false));
+        }
+
+        show(isShown = true) {
+          this.setAttribute("show", isShown ? "true" : "false");
+          this.dispatchEvent(
+            new CustomEvent("overlay-toggled", {
+              detail: { isShown },
+              bubbles: true,
+              composed: true,
+            })
+          );
+        }
+
+        isShown() {
+          return this.getAttribute("show") === "true";
+        }
+      }
+    );
+  })();
+</script>

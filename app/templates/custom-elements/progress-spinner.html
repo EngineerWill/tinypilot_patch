@@ -1,0 +1,57 @@
+<template id="progress-spinner-template">
+  <style>
+    @import "css/style.css";
+
+    :host {
+      --size: 5rem;
+      --thickness: 10px;
+      --color-circle: var(--brand-metallic-bright);
+      --color-rotor: var(--brand-blue);
+      display: inline-block;
+    }
+
+    .spinner {
+      margin: auto;
+      width: var(--size);
+      height: var(--size);
+      border-width: var(--thickness);
+      border-style: solid;
+      border-color: var(--color-circle);
+      border-top-color: var(--color-rotor);
+      border-radius: 50%;
+      animation: spin 1.5s linear infinite;
+      box-sizing: border-box;
+    }
+
+    @keyframes spin {
+      0% {
+        transform: rotate(0deg);
+      }
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+  </style>
+  <div class="spinner"></div>
+</template>
+
+<script type="module">
+  (function () {
+    const template = document.querySelector("#progress-spinner-template");
+
+    customElements.define(
+      "progress-spinner",
+      class extends HTMLElement {
+        constructor() {
+          super();
+        }
+
+        connectedCallback() {
+          this.attachShadow({ mode: "open" }).appendChild(
+            template.content.cloneNode(true)
+          );
+        }
+      }
+    );
+  })();
+</script>

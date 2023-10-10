@@ -1,0 +1,75 @@
+<template id="status-bar-template">
+  <style>
+    @import "css/style.css";
+
+    :host {
+      display: flex;
+      height: 31px; /* Needs to be in sync with on-screen keyboard offset */
+      flex-direction: row;
+      align-items: center;
+      padding: 0 1.25rem;
+      color: white;
+      font-size: 0.9rem;
+      background-color: var(--brand-metallic-medium);
+      box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      -khtml-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+    }
+
+    .spacer {
+      flex: 1;
+    }
+  </style>
+
+  <div class="item">
+    <connection-indicator id="connection-indicator"></connection-indicator>
+  </div>
+  <div class="item">
+    <!-- prettier-ignore -->
+    <video-stream-indicator
+      id="video-stream-indicator"
+      {% if use_webrtc_remote_screen %}
+      desired-mode="H264"
+      {% else %}
+      desired-mode="MJPEG"
+      {% endif %}
+    ></video-stream-indicator>
+  </div>
+  <div class="spacer"></div>
+  <div class="item">
+    <keystroke-history id="keystroke-history"></keystroke-history>
+  </div>
+</template>
+
+<script type="module">
+  (function () {
+    const template = document.querySelector("#status-bar-template");
+
+    customElements.define(
+      "status-bar",
+      class extends HTMLElement {
+        connectedCallback() {
+          this.attachShadow({ mode: "open" }).appendChild(
+            template.content.cloneNode(true)
+          );
+        }
+
+        get connectionIndicator() {
+          return this.shadowRoot.getElementById("connection-indicator");
+        }
+
+        get videoStreamIndicator() {
+          return this.shadowRoot.getElementById("video-stream-indicator");
+        }
+
+        get keystrokeHistory() {
+          return this.shadowRoot.getElementById("keystroke-history");
+        }
+      }
+    );
+  })();
+</script>
